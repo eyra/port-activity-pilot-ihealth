@@ -17,13 +17,12 @@ import { Sidebar } from './templates/sidebar'
 import LogoSvg from '../../../../../assets/images/logo.svg'
 import { Page } from './templates/page'
 import { Progress } from '../elements/progress'
-import { Instructions } from '../elements/instructions'
 
 type Props = Weak<PropsUIPageDonation> & ReactFactoryContext
 
 export const DonationPage = (props: Props): JSX.Element => {
   const { title, forwardButton } = prepareCopy(props)
-  const { platform, locale, resolve } = props
+  const { locale, resolve } = props
 
   function renderBody (props: Props): JSX.Element {
     const context = { locale: locale, resolve: props.resolve }
@@ -62,9 +61,7 @@ export const DonationPage = (props: Props): JSX.Element => {
   const sidebar: JSX.Element = (
     <Sidebar
       logo={LogoSvg}
-      content={
-        <Instructions platform={platform} locale={locale} />
-      }
+
     />
   )
 
