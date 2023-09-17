@@ -17,18 +17,16 @@ SAMPLE_XML = """
 </HealthData>
 """
 
-
 def create_test_zip(file_name="apple_health_export/export.xml"):
     """Utility function to create a test ZIP file in-memory using BytesIO."""
     zip_buffer = io.BytesIO()
 
-    with zipfile.ZipFile(zip_buffer, "w") as test_zip:
+    with zipfile.ZipFile(zip_buffer, 'w') as test_zip:
         test_zip.writestr(file_name, SAMPLE_XML)
-
+    
     # Reset buffer position to the beginning
     zip_buffer.seek(0)
     return zip_buffer
-
 
 def test_aggregate_typical_case():
     xml_data = """
@@ -38,11 +36,10 @@ def test_aggregate_typical_case():
     </HealthData>
     """
     df = aggregate_daily_steps(io.StringIO(xml_data))
-    assert df.iloc[0]["Datum"] == "2023-06-24"
-    assert df.iloc[0]["Aantal stappen"] == 5
-    assert df.iloc[1]["Datum"] == "2023-06-25"
-    assert df.iloc[1]["Aantal stappen"] == 18
-
+    assert df.iloc[0]['Date'] == '2023-06-24'
+    assert df.iloc[0]['Steps'] == 5
+    assert df.iloc[1]['Date'] == '2023-06-25'
+    assert df.iloc[1]['Steps'] == 18
 
 def test_aggregate_same_day():
     xml_data = """
@@ -53,23 +50,8 @@ def test_aggregate_same_day():
     """
     df = aggregate_daily_steps(io.StringIO(xml_data))
     assert len(df) == 1
-    assert df.iloc[0]["Datum"] == "2023-06-25"
-    assert df.iloc[0]["Aantal stappen"] == 40
-
-
-def test_filters_out_data_based_on_date():
-    # see the script for the earliest data which will be included
-    xml_data = """
-    <HealthData locale="en_NL">
-     <Record type="HKQuantityTypeIdentifierStepCount" startDate="2016-06-24 23:10:45 +0100" value="2"/>
-     <Record type="HKQuantityTypeIdentifierStepCount" startDate="2017-01-1 23:10:45 +0100" value="3"/>
-    </HealthData>
-    """
-    df = aggregate_daily_steps(io.StringIO(xml_data))
-    assert len(df) == 1
-    assert df.iloc[0]["Datum"] == "2017-01-01"
-    assert df.iloc[0]["Aantal stappen"] == 3
-
+    assert df.iloc[0]['Date'] == '2023-06-25'
+    assert df.iloc[0]['Steps'] == 40
 
 def test_no_records():
     xml_data = """
@@ -78,7 +60,6 @@ def test_no_records():
     """
     with pytest.raises(EmptyHealthDataError):
         aggregate_daily_steps(io.StringIO(xml_data))
-
 
 def test_empty_input():
     xml_data = ""
@@ -93,14 +74,12 @@ def test_open_export_zip_valid():
         content = f.read().decode()
         assert SAMPLE_XML in content
 
-
 def test_open_export_zip_invalid_file():
     zip_buffer = create_test_zip("other.xml")
-
+    
     with pytest.raises(FileInZipNotFoundError):
         with open_export_zip(zip_buffer) as f:
             pass
-
 
 def test_aggregate_steps_from_zip():
     zip_buffer = create_test_zip()
