@@ -18,30 +18,26 @@ def process(sessionId):
 
     platforms = ["Twitter", "Facebook", "Instagram", "Youtube"]
 
-    subflows = len(platforms)
-    steps = 2
-    step_percentage = (100/subflows)/steps
-
-    # progress in %
-    progress = 0
-
-    for index, platform in enumerate(platforms):
-        meta_data = []
-        meta_data.append(("debug", f"{platform}: start"))
-
-        # STEP 1: select the file
-        progress += step_percentage
-        data = None
-        while True:
-            meta_data.append(("debug", f"{platform}: prompt file"))
-            promptFile = prompt_file(platform, "application/zip, text/plain")
-            fileResult = yield render_donation_page(platform, promptFile, progress)
-            if fileResult.__type__ == 'PayloadString':
-                meta_data.append(("debug", f"{platform}: extracting file"))
-                extractionResult = doSomethingWithTheFile(platform, fileResult.value)
-                if extractionResult != 'invalid':
-                    meta_data.append(("debug", f"{platform}: extraction successful, go to consent form"))
-                    data = extractionResult
+    # STEP 1: select the file
+    data = None
+    while True:
+        promptFile = prompt_file( )
+        fileResult = yield render_donation_page(promptFile, 33)
+        if fileResult.__type__ == 'PayloadString':
+            meta_data.append(("debug", f"extracting file"))
+            extractionResult = extract_daily_steps_from_zip(fileResult.value)
+            if extractionResult != 'invalid':
+                meta_data.append(("debug", f"extraction successful, go to consent form"))
+                data = extractionResult
+                break
+            else:
+                meta_data.append(("debug", f"prompt confirmation to retry file selection"))
+                retry_result = yield render_donation_page(retry_confirmation(), 33)
+                if retry_result.__type__ == 'PayloadTrue':
+                    meta_data.append(("debug", f"skip due to invalid file"))
+                    continue
+                else:
+                    meta_data.append(("debug", f"retry prompt file"))
                     break
                 else:
                     meta_data.append(("debug", f"{platform}: prompt confirmation to retry file selection"))
