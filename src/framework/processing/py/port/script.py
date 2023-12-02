@@ -173,8 +173,8 @@ def render_end_page():
 
 def render_donation_page(platform, body, progress):
     header = props.PropsUIHeader(props.Translatable({
-        "en": platform,
-        "nl": platform
+        "en": "Apple Health",
+        "nl": "Apple Health"
     }))
 
     footer = props.PropsUIFooter(progress)
