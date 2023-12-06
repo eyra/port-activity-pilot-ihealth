@@ -56,7 +56,9 @@ class StepCountCallback:
         self.start_times.append(start_date)
 
     def to_dataframe(self):
-        return pd.DataFrame({"Start Time": self.start_times, "Aantal stappen": self.steps})
+        return pd.DataFrame(
+            {"Start Time": self.start_times, "Aantal stappen": self.steps}
+        )
 
 
 def parse_health_data(file_obj):
@@ -131,14 +133,9 @@ def process(sessionId):
         fileResult = yield render_donation_page(promptFile, 33)
         if fileResult.__type__ == "PayloadString":
             meta_data.append(("debug", f"extracting file"))
-            extractionResult = extract_daily_steps_from_zip(fileResult.value)
-            if extractionResult != "invalid":
-                meta_data.append(
-                    ("debug", f"extraction successful, go to consent form")
-                )
-                data = extractionResult
-                break
-            else:
+            try:
+                extractionResult = extract_daily_steps_from_zip(fileResult.value)
+            except:
                 meta_data.append(
                     ("debug", f"prompt confirmation to retry file selection")
                 )
@@ -146,21 +143,17 @@ def process(sessionId):
                 if retry_result.__type__ == "PayloadTrue":
                     meta_data.append(("debug", f"skip due to invalid file"))
                     continue
-                else:
-                    meta_data.append(("debug", f"retry prompt file"))
-                    break
-                else:
-                    meta_data.append(("debug", f"{platform}: prompt confirmation to retry file selection"))
-                    retry_result = yield render_donation_page(platform, retry_confirmation(platform), progress)
-                    if retry_result.__type__ == 'PayloadTrue':
-                        meta_data.append(("debug", f"{platform}: skip due to invalid file"))
-                        continue
-                    else:
-                        meta_data.append(("debug", f"{platform}: retry prompt file"))
-                        break
-            else:
-                meta_data.append(("debug", f"{platform}: skip to next step"))
+                meta_data.append(("debug", f"retry prompt file"))
                 break
+            else:
+                meta_data.append(
+                    ("debug", f"extraction successful, go to consent form")
+                )
+                data = extractionResult
+                break
+        else:
+            meta_data.append(("debug", f"skip to next step"))
+            break
 
         # STEP 2: ask for consent
         progress += step_percentage
