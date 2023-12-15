@@ -161,7 +161,10 @@ def process(sessionId):
     if consent_result.__type__ == "PayloadJSON":
         meta_data.append(("debug", f"donate consent data"))
         yield donate(f"{sessionId}", consent_result.value)
-
+    if consent_result.__type__ == "PayloadFalse":   
+        value = json.dumps('{"status" : "donation declined"}')
+        yield donate(f"{sessionId}-{key}", value)
+        
 
 def render_donation_page(body, progress):
     header = props.PropsUIHeader(
