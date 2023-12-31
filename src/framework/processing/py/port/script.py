@@ -3,7 +3,7 @@ import xml.sax
 from datetime import datetime
 import zipfile
 from contextlib import contextmanager
-
+import os.path
 import pandas as pd
 
 import port.api.props as props
@@ -124,13 +124,12 @@ def extract_daily_steps_from_zip(zip_path):
 def process(sessionId):
     yield donate(f"{sessionId}-tracking", '[{ "message": "user entered script" }]')
 
-    platforms = ["Twitter", "Facebook", "Instagram", "Youtube"]
-
     # STEP 1: select the file
     data = None
+    meta_data = []
     while True:
         promptFile = prompt_file()
-        fileResult = yield render_donation_page(promptFile, 33)
+        fileResult = yield render_donation_page(promptFile)
         if fileResult.__type__ == "PayloadString":
             meta_data.append(("debug", f"extracting file"))
             try:
@@ -139,11 +138,11 @@ def process(sessionId):
                 meta_data.append(
                     ("debug", f"prompt confirmation to retry file selection")
                 )
-                retry_result = yield render_donation_page(retry_confirmation(), 33)
+                retry_result = yield render_donation_page(retry_confirmation())
                 if retry_result.__type__ == "PayloadTrue":
-                    meta_data.append(("debug", f"skip due to invalid file"))
+                    meta_data.append(("debug", f"retry prompt file"))
                     continue
-                meta_data.append(("debug", f"retry prompt file"))
+                data = ("aborted", fileResult.value)
                 break
             else:
                 meta_data.append(
@@ -155,15 +154,19 @@ def process(sessionId):
             meta_data.append(("debug", f"skip to next step"))
             break
 
-        # STEP 2: ask for consent
-        progress += step_percentage
-        if data is not None:
-            meta_data.append(("debug", f"{platform}: prompt consent"))
-            prompt = prompt_consent(platform, data, meta_data)
-            consent_result = yield render_donation_page(platform, prompt, progress)
-            if consent_result.__type__ == "PayloadJSON":
-                meta_data.append(("debug", f"{platform}: donate consent data"))
-                yield donate(f"{sessionId}-{platform}", consent_result.value)
+    if isinstance(data, ExtractionResult):
+        prompt = prompt_consent(data, meta_data)
+    else:
+        prompt = prompt_report_consent(os.path.basename(data[1]), meta_data)
+
+    meta_data.append(("debug", f"prompt consent"))
+    consent_result = yield render_donation_page(prompt)
+    if consent_result.__type__ == "PayloadJSON":
+        meta_data.append(("debug", f"donate consent data"))
+        yield donate(f"{sessionId}", consent_result.value)
+    if consent_result.__type__ == "PayloadFalse":
+        value = '{"status" : "donation declined"}'
+        yield donate(f"{sessionId}", value)
 
 
 def render_end_page():
@@ -171,13 +174,12 @@ def render_end_page():
     return CommandUIRender(page)
 
 
-def render_donation_page(body, progress):
+def render_donation_page(body):
     header = props.PropsUIHeader(
         props.Translatable({"en": "Apple Health", "nl": "Apple Health"})
     )
 
-    footer = props.PropsUIFooter(progress)
-    page = props.PropsUIPageDonation(platform, header, body, footer)
+    page = props.PropsUIPageDonation("ihealth", header, body)
     return CommandUIRender(page)
 
 
@@ -201,7 +203,7 @@ def prompt_file():
         }
     )
 
-    return props.PropsUIPromptFileInput(description, extensions)
+    return props.PropsUIPromptFileInput(description, "application/zip")
 
 
 def prompt_consent(table, meta_data):
@@ -217,9 +219,39 @@ def prompt_consent(table, meta_data):
     return props.PropsUIPromptConsentForm(tables, [meta_table])
 
 
+def prompt_report_consent(filename, meta_data):
+    log_title = props.Translatable({"en": "Log messages", "nl": "Log berichten"})
+
+    tables = [
+        props.PropsUIPromptConsentFormTable(
+            "filename",
+            props.Translatable({"nl": "Bestandsnaam", "en": "Filename"}),
+            pd.DataFrame({"Bestandsnaam": [filename]}),
+        )
+    ]
+
+    meta_frame = pd.DataFrame(meta_data, columns=["type", "message"])
+    meta_table = props.PropsUIPromptConsentFormTable(
+        "log_messages", log_title, meta_frame
+    )
+    return props.PropsUIPromptConsentForm(
+        tables,
+        [meta_table],
+        description=props.Translatable(
+            {
+                "nl": "Helaas konden we geen gegevens uit uw gegevenspakket halen. Wilt u de onderzoekers van het LISS panel hiervan op de hoogte stellen?",
+                "en": "Unfortunately we could not extract any data from your package. Would you like to report this to the researchers of the LISS panel?",
+            }
+        ),
+        donate_question=props.Translatable(
+            {
+                "en": "Do you want to report the above data?",
+                "nl": "Wilt u de bovenstaande gegevens rapporteren?",
+            }
+        ),
+        donate_button=props.Translatable({"nl": "Ja, rapporteer", "en": "Yes, report"}),
+    )
+
+
 def donate(key, json_string):
     return CommandSystemDonate(key, json_string)
-
-
-def exit(code, info):
-    return CommandSystemExit(code, info)
