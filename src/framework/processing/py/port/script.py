@@ -122,8 +122,6 @@ def extract_daily_steps_from_zip(zip_path):
 
 
 def process(sessionId):
-    yield donate(f"{sessionId}-tracking", '[{ "message": "user entered script" }]')
-
     # STEP 1: select the file
     data = None
     meta_data = []
